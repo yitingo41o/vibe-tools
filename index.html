@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nail Studio 穿戴甲配色模擬器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7efe9;
+    --panel: #fffaf7;
+    --ink: #4a3631;
+    --muted: #9a8079;
+    --line: #ecdcd3;
+    --accent: #d9788a;
+    --accent-ink: #b5546a;
+    --accent-soft: #fbe4e8;
+    --radius: 16px;
+    --shadow: 0 1px 0 var(--line), 0 10px 30px rgba(120, 80, 70, .08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: 'Noto Sans TC', system-ui, -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; }
+
+  /* ---------- 頂部標題列 ---------- */
+  header.top {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    max-width: 1280px; margin: 0 auto; padding: 18px 28px;
+  }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand .logo {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 30px; font-weight: 600; letter-spacing: .04em; color: var(--accent-ink);
+  }
+  .brand .sub { font-size: 14px; color: var(--muted); }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff; border: none; border-radius: 999px;
+    padding: 10px 20px; font-weight: 500; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(217, 120, 138, .35); transition: background .15s, transform .15s;
+  }
+  .btn-primary:hover { background: var(--accent-ink); }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary svg { width: 18px; height: 18px; }
+
+  /* ---------- 主要版面：左預覽、右面板 ---------- */
+  main {
+    max-width: 1280px; margin: 0 auto; padding: 0 28px 32px;
+    display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; align-items: start;
+  }
+  main > * { min-width: 0; }
+  .preview {
+    background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 20px; position: sticky; top: 16px;
+  }
+  #card {
+    width: 100%; height: auto; display: block;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #card.armed .nail { cursor: crosshair; }
+  #card [data-sticker] { cursor: grab; }
+  .hint { font-size: 13px; color: var(--muted); text-align: center; margin: 10px 0 0; min-height: 20px; }
+  .hint.active { color: var(--accent-ink); font-weight: 500; }
+
+  .panel { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px 22px 18px; }
+  .tabs { display: none; }
+  .section { padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .section:last-child { border-bottom: none; }
+  .section h2 { font-size: 15px; font-weight: 700; margin: 0 0 12px; display: flex; align-items: baseline; gap: 8px; }
+  .section h2 .num { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 500; font-size: 19px; color: var(--accent); }
+  .label { font-size: 12px; color: var(--muted); margin: 14px 0 6px; }
+
+  /* 分段按鈕 */
+  .seg { display: flex; gap: 4px; padding: 4px; background: #f3e8e2; border-radius: 12px; }
+  .seg button {
+    flex: 1; border: none; background: transparent; border-radius: 9px;
+    padding: 8px 6px; font-size: 14px; cursor: pointer; transition: background .15s;
+  }
+  .seg button.on { background: #fff; color: var(--accent-ink); font-weight: 500; box-shadow: 0 1px 3px rgba(120, 80, 70, .15); }
+
+  /* 甲型按鈕 */
+  .shapes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .shape-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    border: 1.5px solid var(--line); background: #fff; border-radius: 12px;
+    padding: 10px 4px 8px; font-size: 13px; cursor: pointer; color: #cfa9a2;
+  }
+  .shape-btn span { color: var(--ink); }
+  .shape-btn svg { width: 26px; height: 42px; }
+  .shape-btn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .shape-btn.on span { color: var(--accent-ink); font-weight: 500; }
+
+  /* 色票 */
+  .palette { display: grid; gap: 8px; }
+  .pal-row { display: flex; align-items: center; gap: 10px; }
+  .pal-row .pal-name { width: 44px; font-size: 12px; color: var(--muted); }
+  .swatch {
+    width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; cursor: pointer; padding: 0;
+    box-shadow: 0 0 0 1px var(--line); transition: transform .12s;
+  }
+  .swatch:hover { transform: scale(1.08); }
+  .swatch.on { box-shadow: 0 0 0 2px var(--accent); }
+  .mini-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mini-swatches .swatch { width: 26px; height: 26px; }
+  .color-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .custom-color { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  input[type=color] {
+    width: 38px; height: 30px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 2px; background: #fff; cursor: pointer;
+  }
+  .hex { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); }
+
+  /* 滑桿 */
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-row input { flex: 1; accent-color: var(--accent); }
+  .slider-row span { min-width: 40px; text-align: right; font-size: 13px; color: var(--muted); }
+
+  /* 開關 */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
+  .switch { position: relative; width: 44px; height: 26px; display: inline-block; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; background: #e6d6cf; border-radius: 999px; cursor: pointer; transition: .2s; }
+  .switch span::after {
+    content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); transition: .2s;
+  }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(18px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+  .disabled { opacity: .45; pointer-events: none; }
+
+  /* 亮片顏色 */
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: #fff;
+    border-radius: 999px; padding: 5px 12px 5px 6px; font-size: 13px; cursor: pointer;
+  }
+  .chip i { width: 18px; height: 18px; border-radius: 50%; display: block; }
+  .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+
+  /* 貼飾 */
+  .stickers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .sticker-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    aspect-ratio: 1; border: 1.5px solid var(--line); background: #fff; border-radius: 12px;
+    font-size: 11px; color: var(--muted); cursor: pointer; padding: 4px;
+  }
+  .sticker-btn svg { width: 28px; height: 28px; }
+  .sticker-btn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+  .sel-box { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: #f8efea; }
+  .sel-title { font-size: 13px; font-weight: 500; }
+  .sel-box .label { margin-top: 8px; }
+  .row-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn-ghost {
+    border: 1px solid var(--line); background: #fff; border-radius: 999px;
+    padding: 7px 14px; font-size: 13px; cursor: pointer;
+  }
+  .btn-ghost:hover { border-color: var(--accent); }
+  .btn-ghost.danger { color: #c0392b; }
+  .hidden { display: none !important; }
+
+  footer { text-align: center; font-size: 12px; color: var(--muted); padding: 8px 16px 28px; }
+
+  /* ---------- 手機版 ---------- */
+  @media (max-width: 899px) {
+    header.top { padding: 12px 16px; }
+    .brand .logo { font-size: 24px; }
+    .brand .sub { display: none; }
+    .btn-primary { padding: 8px 16px; font-size: 14px; }
+    main { grid-template-columns: minmax(0, 1fr); padding: 0 16px 20px; gap: 12px; }
+    .preview { top: 0; margin: 0 -16px; padding: 8px 12px 6px; border-radius: 0 0 16px 16px; z-index: 5; }
+    .hint { font-size: 12px; margin-top: 4px; }
+    .panel { padding: 0 16px 12px; }
+    .tabs {
+      display: flex; gap: 4px; padding: 12px 0 4px; border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+    }
+    .tabs button {
+      flex: 1; border: none; background: none; padding: 8px 4px; font-size: 14px; color: var(--muted);
+      border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap;
+    }
+    .tabs button.on { color: var(--accent-ink); border-bottom-color: var(--accent); font-weight: 500; }
+    .section { display: none; border: none; }
+    .section.active { display: block; }
+    .section h2 { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 給面板圖示用的漸層（卡片本身另有一份，匯出時才會完整） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="iPearl" cx="0.38" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.55" stop-color="#f5ede6"/><stop offset="1" stop-color="#d9c8bb"/>
+    </radialGradient>
+    <linearGradient id="iStar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff1b8"/><stop offset="0.5" stop-color="#f2c94c"/><stop offset="1" stop-color="#d4a017"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="brand">
+    <div class="logo">Nail Studio</div>
+    <div class="sub">穿戴甲配色模擬器</div>
+  </div>
+  <button class="btn-primary" id="exportBtn" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+    匯出 PNG
+  </button>
+</header>
+
+<main>
+  <!-- 預覽區 -->
+  <section class="preview">
+    <svg id="card" viewBox="0 0 760 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="穿戴甲設計預覽"></svg>
+    <p class="hint" id="hint"></p>
+  </section>
+
+  <!-- 控制面板 -->
+  <section class="panel">
+    <nav class="tabs" id="tabs">
+      <button type="button" data-tab="shape" class="on">甲型</button>
+      <button type="button" data-tab="base">底色</button>
+      <button type="button" data-tab="style">款式</button>
+      <button type="button" data-tab="glitter">亮片</button>
+      <button type="button" data-tab="sticker">貼飾</button>
+    </nav>
+
+    <div class="section active" data-sec="shape">
+      <h2><span class="num">01</span>甲型</h2>
+      <div class="shapes" id="shapeBtns"></div>
+      <div class="label">長度</div>
+      <div class="seg">
+        <button type="button" data-set="length" data-val="short">短</button>
+        <button type="button" data-set="length" data-val="medium">中</button>
+        <button type="button" data-set="length" data-val="long">長</button>
+      </div>
+    </div>
+
+    <div class="section" data-sec="base">
+      <h2><span class="num">02</span>底色</h2>
+      <div class="palette" id="palette"></div>
+      <label class="custom-color">自訂顏色 <input type="color" id="baseColor"> <span class="hex" id="baseHex"></span></label>
+    </div>
+
+    <div class="section" data-sec="style">
+      <h2><span class="num">03</span>款式</h2>
+      <div class="seg">
+        <button type="button" data-set="style" data-val="solid">純色</button>
+        <button type="button" data-set="style" data-val="gradient">漸層</button>
+        <button type="button" data-set="style" data-val="french">法式</button>
+      </div>
+      <div id="gradientOpts">
+        <div class="label">漸層第二色（指尖）</div>
+        <div class="color-row"><div class="mini-swatches" id="color2Swatches"></div><input type="color" id="color2"></div>
+      </div>
+      <div id="frenchOpts">
+        <div class="label">指尖顏色</div>
+        <div class="color-row"><div class="mini-swatches" id="tipSwatches"></div><input type="color" id="tipColor"></div>
+        <div class="label">法式寬度</div>
+        <div class="slider-row"><input type="range" id="tipWidth" min="12" max="45"><span id="tipWidthVal"></span></div>
+      </div>
+    </div>
+
+    <div class="section" data-sec="glitter">
+      <h2><span class="num">04</span>亮片</h2>
+      <div class="toggle-row">
+        <span>加上亮片</span>
+        <label class="switch"><input type="checkbox" id="glitterOn" aria-label="亮片開關"><span></span></label>
+      </div>
+      <div id="glitterOpts">
+        <div class="label">密度</div>
+        <div class="slider-row"><input type="range" id="density" min="5" max="100"><span id="densityVal"></span></div>
+        <div class="label">顏色</div>
+        <div class="chips" id="glitterColors"></div>
+        <div class="label">分布範圍</div>
+        <div class="seg">
+          <button type="button" data-set="glitter.area" data-val="full">全片</button>
+          <button type="button" data-set="glitter.area" data-val="tip">只有指尖</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" data-sec="sticker">
+      <h2><span class="num">05</span>貼飾</h2>
+      <div class="stickers" id="stickerBtns"></div>
+      <div class="sel-box" id="selBox">
+        <div class="sel-title" id="selTitle">尚未選取貼飾</div>
+        <div class="label">大小</div>
+        <div class="slider-row"><input type="range" id="stickerSize" min="15" max="60"><span id="stickerSizeVal"></span></div>
+        <div class="row-actions">
+          <button type="button" class="btn-ghost danger" id="delSticker">刪除這個貼飾</button>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button type="button" class="btn-ghost" id="clearStickers">清除全部貼飾</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>Nail Studio · 純前端穿戴甲配色模擬器</footer>
+
+<script>
+/* =========================================================
+   基本資料
+   ========================================================= */
+const CW = 760, CH = 520;                          // 甲片卡 SVG 尺寸
+const FINGERS = ['拇指', '食指', '中指', '無名指', '小指'];
+const WIDTHS  = [60, 48, 52, 46, 38];              // 各指甲片寬度（拇指最寬、小指最窄）
+const LENGTHS = { short: { name: '短', r: 1.15 }, medium: { name: '中', r: 1.5 }, long: { name: '長', r: 1.95 } };
+const SHAPES  = { squoval: '方圓', almond: '杏仁', coffin: '棺型' };
+const STYLES  = { solid: '純色', gradient: '漸層', french: '法式' };
+const PALETTE = [
+  { name: '裸色',   colors: ['#f3d9c9', '#e8c1ae', '#d9a38e'] },
+  { name: '奶茶',   colors: ['#d8b79a', '#c09477', '#9c7158'] },
+  { name: '紅色',   colors: ['#e2546b', '#c8102e', '#8e1b2c'] },
+  { name: '莫蘭迪', colors: ['#c7a6a3', '#a9b4a3', '#a7a9c4'] },
+];
+const COLOR2_SWATCHES = ['#fdf6f0', '#f7e3e6', '#f3d9c9', '#e2546b', '#a7a9c4', '#3a2f2d'];
+const TIP_SWATCHES    = ['#fbf6f1', '#f7d9df', '#e8c1ae', '#c8102e', '#e6c36a', '#2f2a2a'];
+const GLITTER = {
+  gold:   { name: '金',   colors: ['#f6d77a', '#e6b94a', '#fff3c4', '#d9a43a'] },
+  silver: { name: '銀',   colors: ['#f4f4f4', '#cfd3d8', '#ffffff', '#b8bec6'] },
+  rose:   { name: '玫瑰金', colors: ['#f3c2b3', '#e29b8a', '#ffe4dc', '#d68672'] },
+  holo:   { name: '幻彩', colors: ['#ffd1f0', '#bde8ff', '#d9ffc9', '#fff6b0', '#e0c8ff'] },
+};
+const STICKERS = { heart: '愛心', star: '星星', pearl: '珍珠', bow: '蝴蝶結', flower: '小花' };
+
+/* 整組 10 片共用同一款設計，只有貼飾個別放在某一片上
+   nail 編號：0~4 = 左手拇指→小指，5~9 = 右手拇指→小指 */
+const state = {
+  shape: 'almond',
+  length: 'medium',
+  base: '#e8c1ae',
+  style: 'french',
+  color2: '#f7e3e6',
+  tipColor: '#fbf6f1',
+  tipWidth: 26,
+  glitter: { on: true, density: 35, color: 'gold', area: 'tip' },
+  stickers: [
+    { nail: 3, type: 'pearl', x: 0.5, y: 0.7, size: 0.3 },
+    { nail: 8, type: 'pearl', x: 0.5, y: 0.7, size: 0.3 },
+  ],
+  selectedSticker: null,
+};
+let armed = null;   // 正在準備貼上的貼飾種類
+let drag = null;    // 拖曳中的資訊
+
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const card = $('#card');
+
+/* =========================================================
+   幾何：甲型路徑與甲片位置
+   ========================================================= */
+function nailPath(shape, w, h) {
+  const cb = w * 0.42;                                  // 甲根圓弧的深度
+  const f = n => n.toFixed(2);
+  const bottom = `L${f(w)},${f(h - cb)} C${f(w)},${f(h + cb / 3)} 0,${f(h + cb / 3)} 0,${f(h - cb)} Z`;
+  if (shape === 'squoval') {
+    const r = w * 0.3;
+    return `M0,${f(h - cb)} L0,${f(r)} Q0,0 ${f(r)},0 L${f(w - r)},0 Q${f(w)},0 ${f(w)},${f(r)} ` + bottom;
+  }
+  if (shape === 'coffin') {
+    const o = w * 0.21, r = w * 0.08;
+    return `M0,${f(h - cb)} L0,${f(h * 0.55)} L${f(o)},${f(r)} Q${f(o)},0 ${f(o + r)},0 ` +
+           `L${f(w - o - r)},0 Q${f(w - o)},0 ${f(w - o)},${f(r)} L${f(w)},${f(h * 0.55)} ` + bottom;
+  }
+  // almond 杏仁
+  return `M0,${f(h - cb)} L0,${f(h * 0.42)} C0,${f(h * 0.16)} ${f(w * 0.3)},0 ${f(w / 2)},0 ` +
+         `C${f(w * 0.7)},0 ${f(w)},${f(h * 0.16)} ${f(w)},${f(h * 0.42)} ` + bottom;
+}
+
+// 每片甲片在卡片上的位置：上排左手（小指→拇指），下排右手（拇指→小指）
+function geom(n) {
+  const left = n < 5, finger = n % 5;
+  const col = left ? 4 - finger : finger;
+  const w = WIDTHS[finger], h = w * LENGTHS[state.length].r;
+  const cx = 150 + col * 125, cy = left ? 186 : 386;
+  return { left, finger, cx, cy, w, h, x0: cx - w / 2, y0: cy - h / 2 };
+}
+
+/* =========================================================
+   亮片：固定種子的亂數，重繪時位置不會跳動
+   ========================================================= */
+function rng(seed) {
+  return function () {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const GLITTER_POINTS = Array.from({ length: 10 }, (_, n) => {
+  const r = rng(n * 7919 + 13);
+  return Array.from({ length: 420 }, () => ({ u: r(), v: r(), s: r(), k: r(), c: r() }));
+});
+
+function glitterSVG(n, g) {
+  const gl = state.glitter;
+  if (!gl.on) return '';
+  const pal = GLITTER[gl.color].colors;
+  const count = Math.round(gl.density / 100 * 420 * Math.min(1, (g.w * g.h) / (60 * 90)));
+  const scale = g.w / 50;
+  let out = '';
+  for (let i = 0; i < count; i++) {
+    const p = GLITTER_POINTS[n][i];
+    const x = p.u * g.w;
+    const y = gl.area === 'tip' ? g.h * 0.5 * Math.pow(p.v, 1.8) : p.v * g.h;
+    const r = (0.55 + p.s * 1.5) * scale;
+    const col = pal[Math.floor(p.c * pal.length)];
+    const op = (0.7 + 0.3 * p.s).toFixed(2);
+    if (p.k < 0.07) {        // 少數做成四角星閃光
+      const R = r * 2.6, q = R * 0.22;
+      out += `<path d="M${x},${y - R} L${x + q},${y - q} L${x + R},${y} L${x + q},${y + q} L${x},${y + R} L${x - q},${y + q} L${x - R},${y} L${x - q},${y - q}Z" fill="#fffdf5" opacity="0.95"/>`;
+    } else {
+      out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${col}" opacity="${op}"/>`;
+    }
+  }
+  return out;
+}
+
+/* =========================================================
+   貼飾圖形（單位座標 -1~1）
+   ========================================================= */
+function starPoints() {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.45 : 1;
+    pts.push((Math.cos(a) * r).toFixed(3) + ',' + (Math.sin(a) * r).toFixed(3));
+  }
+  return pts.join(' ');
+}
+const STAR_PTS = starPoints();
+
+function stickerShape(type, p) {   // p = 漸層 id 前綴：卡片用 g，面板圖示用 i
+  switch (type) {
+    case 'heart':
+      return `<path d="M0,0.85 C-0.15,0.7 -1,0.15 -1,-0.35 C-1,-0.8 -0.45,-1 0,-0.55 C0.45,-1 1,-0.8 1,-0.35 C1,0.15 0.15,0.7 0,0.85Z" fill="#e5486a" stroke="#b8304f" stroke-width="0.06"/>` +
+             `<ellipse cx="-0.48" cy="-0.42" rx="0.2" ry="0.11" fill="#fff" opacity="0.6" transform="rotate(-35 -0.48 -0.42)"/>`;
+    case 'star':
+      return `<polygon points="${STAR_PTS}" fill="url(#${p}Star)" stroke="#c99a2e" stroke-width="0.06" stroke-linejoin="round"/>` +
+             `<circle cx="-0.15" cy="-0.3" r="0.1" fill="#fff" opacity="0.8"/>`;
+    case 'pearl':
+      return `<circle r="0.95" fill="url(#${p}Pearl)" stroke="#d8cabe" stroke-width="0.04"/>` +
+             `<ellipse cx="-0.3" cy="-0.35" rx="0.25" ry="0.17" fill="#fff" opacity="0.85"/>`;
+    case 'bow':
+      return `<path d="M-0.08,0.05 L-0.38,0.9 L-0.12,0.74 Z M0.08,0.05 L0.38,0.9 L0.12,0.74 Z" fill="#f4a3bd" stroke="#d26b8d" stroke-width="0.05" stroke-linejoin="round"/>` +
+             `<path d="M0,0 C-0.4,-0.65 -1,-0.7 -1,-0.1 C-1,0.45 -0.45,0.35 0,0Z M0,0 C0.4,-0.65 1,-0.7 1,-0.1 C1,0.45 0.45,0.35 0,0Z" fill="#f4a3bd" stroke="#d26b8d" stroke-width="0.06"/>` +
+             `<circle r="0.2" fill="#e88aa8" stroke="#d26b8d" stroke-width="0.05"/>`;
+    case 'flower': {
+      let s = '';
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+        s += `<circle cx="${(Math.cos(a) * 0.5).toFixed(3)}" cy="${(Math.sin(a) * 0.5).toFixed(3)}" r="0.48" fill="#fffaf8" stroke="#f0c2cc" stroke-width="0.05"/>`;
+      }
+      return s + `<circle r="0.3" fill="#f6c85f" stroke="#e0a93a" stroke-width="0.05"/>`;
+    }
+  }
+  return '';
+}
+
+/* =========================================================
+   繪製甲片卡
+   ========================================================= */
+function nailSVG(n) {
+  const g = geom(n);
+  const d = nailPath(state.shape, g.w, g.h);
+  const fill = state.style === 'gradient' ? 'url(#gFill)' : state.base;
+  let s = `<g class="nail" data-nail="${n}" transform="translate(${g.x0.toFixed(2)},${g.y0.toFixed(2)})">`;
+  s += `<clipPath id="clip${n}"><path d="${d}"/></clipPath>`;
+  s += `<path class="nail-shape" d="${d}" fill="${fill}" filter="url(#shadow)"/>`;
+  s += `<g clip-path="url(#clip${n})">`;
+
+  if (state.style === 'french') {
+    const th = g.h * state.tipWidth / 100, dd = g.w * 0.28;
+    s += `<path d="M-2,-2 H${g.w + 2} V${th + dd} Q${g.w / 2},${th - dd} -2,${th + dd} Z" fill="${state.tipColor}"/>`;
+  }
+  s += glitterSVG(n, g);
+  // 光澤高光
+  s += `<path d="M${g.w * 0.22},${g.h * 0.14} Q${g.w * 0.15},${g.h * 0.4} ${g.w * 0.22},${g.h * 0.64}" stroke="#fff" stroke-opacity="0.45" stroke-width="${(g.w * 0.07).toFixed(2)}" stroke-linecap="round" fill="none"/>`;
+  // 貼飾
+  state.stickers.forEach((st, i) => {
+    if (st.nail !== n) return;
+    s += `<g data-sticker="${i}" transform="${stickerTransform(st, g)}">${stickerShape(st.type, 'g')}</g>`;
+  });
+  s += `</g>`;
+  s += `<path d="${d}" fill="none" stroke="#7a4a40" stroke-opacity="0.13" stroke-width="1" pointer-events="none"/>`;
+
+  // 選取框（匯出時移除）
+  const sel = state.selectedSticker;
+  if (sel !== null && state.stickers[sel] && state.stickers[sel].nail === n) {
+    const st = state.stickers[sel];
+    s += `<circle class="ui-only" id="selRing" cx="${st.x * g.w}" cy="${st.y * g.h}" r="${st.size * g.w / 2 * 1.35}" fill="none" stroke="#d9788a" stroke-width="1.5" stroke-dasharray="4 3" pointer-events="none"/>`;
+  }
+  return s + `</g>`;
+}
+
+function stickerTransform(st, g) {
+  return `translate(${(st.x * g.w).toFixed(2)},${(st.y * g.h).toFixed(2)}) scale(${(st.size * g.w / 2).toFixed(3)})`;
+}
+
+function summaryText() {
+  let t = `${SHAPES[state.shape]} · ${LENGTHS[state.length].name}長度 · ${STYLES[state.style]}`;
+  if (state.glitter.on) t += ` · ${GLITTER[state.glitter.color].name}色亮片`;
+  if (state.stickers.length) t += ` · 貼飾 ${state.stickers.length} 個`;
+  return t;
+}
+
+function renderCard() {
+  const serif = `'Cormorant Garamond', Georgia, serif`;
+  const sans = `'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif`;
+  let s = `<defs>
+    <filter id="shadow" x="-40%" y="-20%" width="180%" height="150%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#8a5a50" flood-opacity="0.25"/>
+    </filter>
+    <linearGradient id="gFill" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0.12" stop-color="${state.base}"/><stop offset="1" stop-color="${state.color2}"/>
+    </linearGradient>
+    <radialGradient id="gPearl" cx="0.38" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.55" stop-color="#f5ede6"/><stop offset="1" stop-color="#d9c8bb"/>
+    </radialGradient>
+    <linearGradient id="gStar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff1b8"/><stop offset="0.5" stop-color="#f2c94c"/><stop offset="1" stop-color="#d4a017"/>
+    </linearGradient>
+  </defs>`;
+
+  // 卡片底與標題
+  s += `<rect x="0" y="0" width="${CW}" height="${CH}" rx="24" fill="#fffaf6"/>`;
+  s += `<text x="40" y="50" font-family="${serif}" font-size="26" font-weight="600" letter-spacing="2" fill="#b5546a">NAIL STUDIO</text>`;
+  s += `<text x="40" y="75" font-family="${sans}" font-size="13" fill="#9a8079">${summaryText()}</text>`;
+  s += `<text x="720" y="46" text-anchor="end" font-family="${serif}" font-size="13" letter-spacing="3" fill="#b8a199">10 PCS</text>`;
+
+  // 右上角的用色圓點
+  const dots = [state.base];
+  if (state.style === 'gradient') dots.push(state.color2);
+  if (state.style === 'french') dots.push(state.tipColor);
+  if (state.glitter.on) dots.push(GLITTER[state.glitter.color].colors[1]);
+  dots.reverse().forEach((c, i) => {
+    s += `<circle cx="${712 - i * 22}" cy="66" r="8" fill="${c}" stroke="#e5d5cc" stroke-width="1"/>`;
+  });
+  s += `<line x1="40" y1="90" x2="720" y2="90" stroke="#ecdcd3" stroke-width="1"/>`;
+
+  // 兩排：手的標示、甲片托盤、指名
+  [[186, 'L', '左手'], [386, 'R', '右手']].forEach(([cy, mark, name]) => {
+    s += `<text x="54" y="${cy - 2}" text-anchor="middle" font-family="${serif}" font-style="italic" font-size="34" fill="#d9a5a0">${mark}</text>`;
+    s += `<text x="54" y="${cy + 20}" text-anchor="middle" font-family="${sans}" font-size="12" fill="#a8928a">${name}</text>`;
+  });
+  for (let n = 0; n < 10; n++) {
+    const g = geom(n);
+    s += `<rect x="${g.cx - 52}" y="${g.cy - 85}" width="104" height="170" rx="18" fill="#ffffff" stroke="#f0e2da" stroke-width="1"/>`;
+    s += `<text x="${g.cx}" y="${g.cy + 104}" text-anchor="middle" font-family="${sans}" font-size="12" fill="#a8928a">${FINGERS[g.finger]}</text>`;
+  }
+  for (let n = 0; n < 10; n++) s += nailSVG(n);
+
+  card.innerHTML = s;
+  card.classList.toggle('armed', !!armed);
+}
+
+/* =========================================================
+   控制面板
+   ========================================================= */
+function swatchBtn(key, color) {
+  return `<button type="button" class="swatch" data-set="${key}" data-val="${color}" style="background:${color}" aria-label="${color}" title="${color}"></button>`;
+}
+
+function buildPanel() {
+  $('#shapeBtns').innerHTML = Object.entries(SHAPES).map(([k, name]) =>
+    `<button type="button" class="shape-btn" data-set="shape" data-val="${k}">
+       <svg viewBox="-2 -2 34 52"><path d="${nailPath(k, 30, 46)}" fill="currentColor"/></svg>
+       <span>${name}</span></button>`).join('');
+
+  $('#palette').innerHTML = PALETTE.map(g =>
+    `<div class="pal-row"><span class="pal-name">${g.name}</span>${g.colors.map(c => swatchBtn('base', c)).join('')}</div>`).join('');
+
+  $('#color2Swatches').innerHTML = COLOR2_SWATCHES.map(c => swatchBtn('color2', c)).join('');
+  $('#tipSwatches').innerHTML = TIP_SWATCHES.map(c => swatchBtn('tipColor', c)).join('');
+
+  $('#glitterColors').innerHTML = Object.entries(GLITTER).map(([k, g]) =>
+    `<button type="button" class="chip" data-set="glitter.color" data-val="${k}">
+       <i style="background:linear-gradient(135deg, ${g.colors.join(', ')})"></i>${g.name}</button>`).join('');
+
+  $('#stickerBtns').innerHTML = Object.entries(STICKERS).map(([k, name]) =>
+    `<button type="button" class="sticker-btn" data-sticker-type="${k}" aria-label="${name}">
+       <svg viewBox="-1.2 -1.2 2.4 2.4">${stickerShape(k, 'i')}</svg>${name}</button>`).join('');
+}
+
+function getPath(path) { return path.split('.').reduce((o, k) => o[k], state); }
+function setPath(path, val) {
+  const keys = path.split('.'), last = keys.pop();
+  keys.reduce((o, k) => o[k], state)[last] = val;
+}
+
+function syncUI() {
+  $$('[data-set]').forEach(b => b.classList.toggle('on', String(getPath(b.dataset.set)) === b.dataset.val));
+
+  $('#baseColor').value = state.base;
+  $('#baseHex').textContent = state.base.toUpperCase();
+  $('#color2').value = state.color2;
+  $('#tipColor').value = state.tipColor;
+  $('#tipWidth').value = state.tipWidth;
+  $('#tipWidthVal').textContent = state.tipWidth + '%';
+  $('#gradientOpts').classList.toggle('hidden', state.style !== 'gradient');
+  $('#frenchOpts').classList.toggle('hidden', state.style !== 'french');
+
+  $('#glitterOn').checked = state.glitter.on;
+  $('#density').value = state.glitter.density;
+  $('#densityVal').textContent = state.glitter.density;
+  $('#glitterOpts').classList.toggle('disabled', !state.glitter.on);
+
+  $$('[data-sticker-type]').forEach(b => b.classList.toggle('on', b.dataset.stickerType === armed));
+  const sel = state.selectedSticker !== null ? state.stickers[state.selectedSticker] : null;
+  $('#selBox').classList.toggle('disabled', !sel);
+  if (sel) {
+    const g = geom(sel.nail);
+    $('#selTitle').textContent = `已選取：${STICKERS[sel.type]}（${g.left ? '左' : '右'}手${FINGERS[g.finger]}）`;
+    $('#stickerSize').value = Math.round(sel.size * 100);
+    $('#stickerSizeVal').textContent = Math.round(sel.size * 100) + '%';
+  } else {
+    $('#selTitle').textContent = '尚未選取貼飾：點甲片上的貼飾即可選取';
+    $('#stickerSizeVal').textContent = '';
+  }
+  $('#clearStickers').disabled = state.stickers.length === 0;
+
+  const hint = $('#hint');
+  if (armed) {
+    hint.textContent = `點一片甲片，把「${STICKERS[armed]}」貼上去（按 Esc 取消）`;
+  } else if (sel) {
+    hint.textContent = '拖曳可移動貼飾；按 Delete 或面板上的「刪除」可移除';
+  } else {
+    hint.textContent = '在「貼飾」選一個圖示，再點甲片就能貼上';
+  }
+  hint.classList.toggle('active', !!armed || !!sel);
+}
+
+function render() { renderCard(); syncUI(); }
+
+/* =========================================================
+   事件：面板
+   ========================================================= */
+document.addEventListener('click', e => {
+  const setBtn = e.target.closest('[data-set]');
+  if (setBtn) { setPath(setBtn.dataset.set, setBtn.dataset.val); render(); return; }
+
+  const tab = e.target.closest('[data-tab]');
+  if (tab) {
+    $$('[data-tab]').forEach(b => b.classList.toggle('on', b === tab));
+    $$('[data-sec]').forEach(s => s.classList.toggle('active', s.dataset.sec === tab.dataset.tab));
+    return;
+  }
+
+  const stBtn = e.target.closest('[data-sticker-type]');
+  if (stBtn) {
+    armed = armed === stBtn.dataset.stickerType ? null : stBtn.dataset.stickerType;
+    state.selectedSticker = null;
+    render();
+  }
+});
+
+function bindInput(id, fn) { $(id).addEventListener('input', e => { fn(e.target.value); render(); }); }
+bindInput('#baseColor',  v => state.base = v);
+bindInput('#color2',     v => state.color2 = v);
+bindInput('#tipColor',   v => state.tipColor = v);
+bindInput('#tipWidth',   v => state.tipWidth = +v);
+bindInput('#density',    v => state.glitter.density = +v);
+bindInput('#stickerSize', v => {
+  if (state.selectedSticker !== null) state.stickers[state.selectedSticker].size = v / 100;
+});
+$('#glitterOn').addEventListener('change', e => { state.glitter.on = e.target.checked; render(); });
+
+function deleteSelected() {
+  if (state.selectedSticker === null) return;
+  state.stickers.splice(state.selectedSticker, 1);
+  state.selectedSticker = null;
+  render();
+}
+$('#delSticker').addEventListener('click', deleteSelected);
+$('#clearStickers').addEventListener('click', () => {
+  state.stickers = [];
+  state.selectedSticker = null;
+  render();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea')) return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedSticker !== null) {
+    e.preventDefault();
+    deleteSelected();
+  } else if (e.key === 'Escape') {
+    armed = null;
+    state.selectedSticker = null;
+    render();
+  }
+});
+
+/* =========================================================
+   事件：在甲片上貼上與拖曳貼飾
+   ========================================================= */
+function svgPoint(e) {
+  const p = card.createSVGPoint();
+  p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(card.getScreenCTM().inverse());
+}
+function localPoint(e, g) {
+  const p = svgPoint(e);
+  return { x: (p.x - g.x0) / g.w, y: (p.y - g.y0) / g.h };   // 甲面內 0~1 的相對座標
+}
+
+function insideNail(n, g, pt) {
+  const path = card.querySelector(`.nail[data-nail="${n}"] .nail-shape`);
+  try {
+    return path.isPointInFill(new DOMPoint(pt.x * g.w, pt.y * g.h));
+  } catch (err) {
+    return pt.x >= 0.1 && pt.x <= 0.9 && pt.y >= 0.05 && pt.y <= 0.9;
+  }
+}
+
+// 把位置限制在甲面內：超出時停在邊緣
+function clampInside(n, g, cand, prev) {
+  cand = { x: Math.min(0.97, Math.max(0.03, cand.x)), y: Math.min(0.97, Math.max(0.03, cand.y)) };
+  if (insideNail(n, g, cand)) return cand;
+  if (!prev) return null;
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 12; i++) {
+    const t = (lo + hi) / 2;
+    const pt = { x: prev.x + (cand.x - prev.x) * t, y: prev.y + (cand.y - prev.y) * t };
+    if (insideNail(n, g, pt)) lo = t; else hi = t;
+  }
+  return { x: prev.x + (cand.x - prev.x) * lo, y: prev.y + (cand.y - prev.y) * lo };
+}
+
+function startDrag(e, ox, oy) {
+  drag = { id: e.pointerId, ox, oy };
+  card.setPointerCapture(e.pointerId);
+}
+
+card.addEventListener('pointerdown', e => {
+  const stickerEl = e.target.closest('[data-sticker]');
+  const nailEl = e.target.closest('.nail');
+
+  // 已選好貼飾種類 → 點甲片貼上
+  if (armed && nailEl) {
+    const n = +nailEl.dataset.nail, g = geom(n);
+    const pos = clampInside(n, g, localPoint(e, g), null) || { x: 0.5, y: 0.6 };
+    state.stickers.push({ nail: n, type: armed, x: pos.x, y: pos.y, size: 0.32 });
+    state.selectedSticker = state.stickers.length - 1;
+    armed = null;
+    render();
+    startDrag(e, 0, 0);
+    e.preventDefault();
+    return;
+  }
+
+  // 點到貼飾 → 選取並開始拖曳
+  if (stickerEl) {
+    const i = +stickerEl.dataset.sticker, st = state.stickers[i], g = geom(st.nail);
+    const p = localPoint(e, g);
+    state.selectedSticker = i;
+    render();
+    startDrag(e, p.x - st.x, p.y - st.y);
+    e.preventDefault();
+    return;
+  }
+
+  // 點到其他地方 → 取消選取
+  if (state.selectedSticker !== null) {
+    state.selectedSticker = null;
+    render();
+  }
+});
+
+card.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id || state.selectedSticker === null) return;
+  const i = state.selectedSticker, st = state.stickers[i], g = geom(st.nail);
+  const p = localPoint(e, g);
+  const pos = clampInside(st.nail, g, { x: p.x - drag.ox, y: p.y - drag.oy }, { x: st.x, y: st.y });
+  if (!pos) return;
+  st.x = pos.x; st.y = pos.y;
+  // 拖曳時只更新這個貼飾，不整張重畫
+  const el = card.querySelector(`[data-sticker="${i}"]`);
+  if (el) el.setAttribute('transform', stickerTransform(st, g));
+  const ring = card.querySelector('#selRing');
+  if (ring) { ring.setAttribute('cx', st.x * g.w); ring.setAttribute('cy', st.y * g.h); }
+});
+
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  drag = null;
+  if (card.hasPointerCapture(e.pointerId)) card.releasePointerCapture(e.pointerId);
+}
+card.addEventListener('pointerup', endDrag);
+card.addEventListener('pointercancel', endDrag);
+
+/* =========================================================
+   匯出 PNG
+   ========================================================= */
+function exportPNG() {
+  const clone = card.cloneNode(true);
+  clone.querySelectorAll('.ui-only').forEach(el => el.remove());
+  clone.removeAttribute('class');
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('width', CW);
+  clone.setAttribute('height', CH);
+  const svgText = new XMLSerializer().serializeToString(clone);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = CW * scale;
+    canvas.height = CH * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'nail-design.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }, 'image/png');
+  };
+  img.onerror = () => alert('匯出失敗，請再試一次');
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+}
+$('#exportBtn').addEventListener('click', exportPNG);
+
+/* ========================================================= */
+buildPanel();
+render();
+</script>
+</body>
+</html>
