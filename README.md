@@ -1,2 +1,2 @@
 # vibe-tools
-vibe codingtj
+vibe coding
